@@ -46,6 +46,9 @@ else:
         dados_novos = range_dados(sys.argv[2])
     else:
         dados_novos = range_dados(sys.argv[2],sys.argv[3])
+    if(dados_novos.shape[0]==0):
+        print("0 Documentos encontrados")
+        sys.exit()
     dados_novos.reset_index(inplace = True,drop=True)
     naturezas_novas = pd.DataFrame(dados_novos['Natureza Despesa (Cod)'])
     fora_do_modelo = []

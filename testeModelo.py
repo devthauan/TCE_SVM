@@ -4,7 +4,6 @@ import pickle
 import numpy as np
 import pandas as pd
 from scipy import sparse
-from datetime import date
 from sklearn.svm import SVC
 from tratamentos import pickles
 from tratarDados import tratarDados
@@ -12,6 +11,7 @@ from scipy.sparse import csr_matrix
 from sklearn.metrics import f1_score
 from conexaoDados import range_dados
 from preparacaoDados import tratamentoDados
+from datetime import date, timedelta
 
 data_atual = date.today().strftime('%d/%m/%Y')
 print(sys.argv)
@@ -42,8 +42,10 @@ else:
     # Pega os novos dados
     if(len(sys.argv) == 1):
         dados_novos = range_dados()
-    else:
+    elif(len(sys.argv) == 3):
         dados_novos = range_dados(sys.argv[2])
+    else:
+        dados_novos = range_dados(sys.argv[2],sys.argv[3])
     dados_novos.reset_index(inplace = True,drop=True)
     naturezas_novas = pd.DataFrame(dados_novos['Natureza Despesa (Cod)'])
     fora_do_modelo = []
@@ -73,18 +75,22 @@ else:
     colunas = ['empenho_sequencial_empenho','natureza_real','natureza_predita']
     resultado.columns = colunas
     #
-    label_inconclusiva = ["inconclusivo"]*len(dados_fora_modelo)
-    identificador_empenho_inconclusivo = pd.DataFrame(dados_fora_modelo['Empenho (Sequencial Empenho)'])
-    resultado_inconclusivo = pd.concat([pd.DataFrame(identificador_empenho_inconclusivo),dados_fora_modelo['Natureza Despesa (Cod)']],axis = 1)
-    resultado_inconclusivo = pd.concat([resultado_inconclusivo,pd.DataFrame(label_inconclusiva)],axis = 1)
-    resultado_inconclusivo.columns = colunas
-    # Junta os resultados
-    resultado = pd.concat([resultado,resultado_inconclusivo],axis = 0)
-    del resultado_inconclusivo
+    if(len(dados_fora_modelo) >0):
+        label_inconclusiva = ["inconclusivo"]*len(dados_fora_modelo)
+        identificador_empenho_inconclusivo = pd.DataFrame(dados_fora_modelo['Empenho (Sequencial Empenho)'])
+        resultado_inconclusivo = pd.concat([pd.DataFrame(identificador_empenho_inconclusivo),dados_fora_modelo['Natureza Despesa (Cod)']],axis = 1)
+        resultado_inconclusivo = pd.concat([resultado_inconclusivo,pd.DataFrame(label_inconclusiva)],axis = 1)
+        resultado_inconclusivo.columns = colunas
+        # Junta os resultados
+        resultado = pd.concat([resultado,resultado_inconclusivo],axis = 0)
+        del resultado_inconclusivo
     resultado['data_predicao'] = data_atual
     resultado.reset_index(inplace = True,drop=True)
     resultado['acerto'] = resultado['natureza_real']==resultado['natureza_predita']
-    resultado.to_csv("resultado.csv",index = False)
+    if(len(sys.argv) == 1):
+        resultado.to_csv("resultado-"+(date.today()-timedelta(days=1)).strftime('%Y/%m/%d').replace("/","-")+".csv",index = False)
+    else:
+        resultado.to_csv("resultado-"+sys.argv[2].replace("/","-")+".csv",index = False)
     # =============================================================================
     # LOG
     # =============================================================================

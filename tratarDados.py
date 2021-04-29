@@ -40,7 +40,7 @@ def tratarDados(data):
     # Codigo que gera o meta atributo "pessoa_juridica" onde 1 representa que a pessoa e juridica e 0 caso seja fisica
     identificacao_pessoa = [0] * data.shape[0]
     for i in range(data.shape[0]):
-      if(data['beneficiario_cpf'].iloc[i] == "-" or data['beneficiario_cpf'].iloc[i] is None or np.isnan(data['beneficiario_cpf'].iloc[i])):
+      if(type(data['beneficiario_cpf'].iloc[i]) == str and len(data['beneficiario_cpf'].iloc[i]) >1 ):
         identificacao_pessoa[i] = 1
       else: identificacao_pessoa[i]=0
     data['pessoa_juridica'] = identificacao_pessoa

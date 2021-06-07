@@ -60,7 +60,7 @@ def todos_dados():
     curs.execute(sqlEOF+' WHERE c."Exercício do orçamento (Ano)" >= 2015')
     nomeCampos = [i[0] for i in curs.description]
     df = pd.DataFrame(curs.fetchall(),columns=nomeCampos)
-    pickles.criaPickle(df,"df")
+    pickles.criarPickle(df,"df")
     return df
 
 def range_dados(valor = 0, orgao = 0):
@@ -85,5 +85,5 @@ def range_dados(valor = 0, orgao = 0):
         curs.execute(sqlEOF+' WHERE c."Período (Dia/Mes/Ano)" = dia and "Órgão (Código/Nome)" = orgao'.replace("dia",valor).replace("orgao",orgao))
     nomeCampos = [i[0] for i in curs.description]
     df = pd.DataFrame(curs.fetchall(),columns=nomeCampos)
-    pickles.criaPickle(df,"dados_teste")
+    pickles.criarPickle(df,"dados_teste")
     return df

@@ -1,9 +1,9 @@
 import pickle
 
-def criaPickle(data,name):
+def criarPickle(data,name):
     data.to_pickle("pickles/"+name+".pkl")
     
-def carregaPickle(name):
+def carregarPickle(name):
     with open('pickles/'+name+'.pkl', 'rb') as pickle_file: data = pickle.load(pickle_file)
     return data
 

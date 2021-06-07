@@ -12,6 +12,11 @@ def oneHotEncoding(data):
             with open('pickles/modelos_tratamentos/'+"OHE_"+colunas[i]+'.pk', 'wb') as fin:
                 pickle.dump(enc, fin)
             dummies = pd.DataFrame(enc.transform(data[colunas[i]].values.reshape(-1, 1)).toarray())
+            # adicionando o nome da coluna na dummie
+            colunas_mais_nomes = [0]*dummies.shape[1]
+            for k in range(dummies.shape[1]):
+                colunas_mais_nomes[k] = colunas[i]+"-"+str(dummies.columns[k])
+            dummies.columns = colunas_mais_nomes
             #concatenando a tabela de dummy criada com o dataset
             data = pd.concat([data,dummies],axis='columns')
             #dropando a antiga coluna
@@ -25,6 +30,11 @@ def aplyOHE(data):
             with open('pickles/modelos_tratamentos/'+"OHE_"+colunas[i]+'.pk', 'rb') as pickle_file:
                 enc = pickle.load(pickle_file)
             dummies = pd.DataFrame(enc.transform(data[colunas[i]].values.reshape(-1, 1)).toarray())
+            # adicionando o nome da coluna na dummie
+            colunas_mais_nomes = [0]*dummies.shape[1]
+            for k in range(dummies.shape[1]):
+                colunas_mais_nomes[k] = colunas[i]+"-"+str(dummies.columns[k])
+            dummies.columns = colunas_mais_nomes
             #concatenando a tabela de dummy criada com o dataset
             data = pd.concat([data,dummies],axis='columns')
             #dropando a antiga coluna

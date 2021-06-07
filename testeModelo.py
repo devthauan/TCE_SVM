@@ -25,8 +25,7 @@ else:
 
 if(TREINAR_MODELO):
     # Pega todos os dados do banco dremio
-    #data = todos_dados()
-    data = pickles.carregarPickle("df")
+    data = todos_dados()
     # Carrega os dados na variavel 'data' utilizando o Pandas
 #    data = pd.read_csv("../ProjetoTCE/arquivos/dadosTCE.csv",low_memory = False)
     # Carrega os dados validados
@@ -39,8 +38,8 @@ if(TREINAR_MODELO):
     data.reset_index(drop = True, inplace = True)
     del indexes
     #
-    data = data[:10000]
-    dados_validados = dados_validados[:100]
+    #data = data[:10000]
+    #dados_validados = dados_validados[:100]
     print(data.shape)
     tratamentoDados(data.copy(),'tfidf')
     tratamentoDados(data.copy(),'OHE')

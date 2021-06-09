@@ -25,8 +25,8 @@ else:
 
 if(TREINAR_MODELO):
     # Pega todos os dados do banco dremio
-    #data = todos_dados()
-    data = pickles.carregarPickle("df")
+    data = todos_dados()
+#    data = pickles.carregarPickle("df")
     # Carrega os dados na variavel 'data' utilizando o Pandas
 #    data = pd.read_csv("../ProjetoTCE/arquivos/dadosTCE.csv",low_memory = False)
     # Carrega os dados validados
@@ -39,8 +39,8 @@ if(TREINAR_MODELO):
     data.reset_index(drop = True, inplace = True)
     del indexes
     #
-    data = data[:10000]
-    dados_validados = dados_validados[:100]
+    #data = data[:10000]
+    #dados_validados = dados_validados[:100]
     print(data.shape)
     tratamentoDados(data.copy(),'tfidf')
     tratamentoDados(data.copy(),'OHE')
@@ -50,14 +50,14 @@ if(TREINAR_MODELO):
     data = sparse.hstack((csr_matrix(data),csr_matrix(tfidf) ))
     del tfidf
     print(data.shape)
-    # Separando 60% dos dados para selecao de hiperparametros
-    data_treino, data_teste, label_treino, label_teste = train_test_split(data, label, test_size = 0.4,stratify = label, random_state = 10)
+    # Separando 40% dos dados para selecao de hiperparametros
+    data_treino, data_teste, label_treino, label_teste = train_test_split(data, label, test_size = 0.6,stratify = label, random_state = 10)
     del data_teste, label_teste
     label_treino.reset_index(drop = True, inplace = True)
     # Acha o melhor conjunto de hiperparametros para o algoritmo
     modelo = SVC(kernel="linear", random_state=0)
     hiperparametros = {'C':[0.1,1,10,100] }
-    espalhamento = 5
+    espalhamento = 3
     melhor_c = refinamento_hiperparametros(data_treino, label_treino, modelo, hiperparametros, espalhamento)["C"]
     modelo = SVC(kernel="linear", random_state=0,C = melhor_c)
     # Treina o modelo de predicao da classe
@@ -74,14 +74,14 @@ if(TREINAR_MODELO):
     del tfidf_validado, dados_validados, label_naturezas
     print(data_validado.shape)
     # Treina o modelo de predicao de corretude    
-    # Separando 60% dos dados para treino e 40% para teste
-    data_treino, data_teste, label_treino, label_teste = train_test_split(data_validado, label_validado, test_size = 0.4,stratify = label_validado, random_state = 10)
+    # Separando 40% dos dados para treino e 40% para teste
+    data_treino, data_teste, label_treino, label_teste = train_test_split(data_validado, label_validado, test_size = 0.6,stratify = label_validado, random_state = 10)
     del data_teste, label_teste
     label_treino.reset_index(drop = True, inplace = True)
     # Acha o melhor conjunto de hiperparametros para o algoritmo
     modelo_validado = SVC(kernel="linear", random_state=0)
     hiperparametros = {'C':[0.1,1,10,100] }
-    espalhamento = 5
+    espalhamento = 3
     melhor_c = refinamento_hiperparametros(data_treino, label_treino, modelo_validado, hiperparametros, espalhamento)["C"]
     modelo_validado = SVC(kernel="linear", random_state=0,C = melhor_c)
     modelo_validado.fit(data_validado, label_validado.values.ravel())

@@ -26,7 +26,10 @@ else:
 if(TREINAR_MODELO):
     # Pega todos os dados do banco dremio
     data = todos_dados()
+<<<<<<< HEAD
 #    data = pickles.carregarPickle("df")
+=======
+>>>>>>> 55a16bf5af4a97d59ef2793ec6a8985b70d09df5
     # Carrega os dados na variavel 'data' utilizando o Pandas
 #    data = pd.read_csv("../ProjetoTCE/arquivos/dadosTCE.csv",low_memory = False)
     # Carrega os dados validados

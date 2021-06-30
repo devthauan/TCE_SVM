@@ -11,7 +11,7 @@ from tratamentos import one_hot_encoding
 from preparacaoDados import tratamento_especifico
 ### Meus pacotes ###
 
-def tratarDados(data, opcao):
+def tratarDados(data, opcao = "visao dupla"):
     # Trata o nome das colunas para trabalhar melhor com os dados
     data.columns = [c.lower().replace(' ', '_') for c in data.columns]
     data.columns = [tratar_texto.removerCaracteresEspeciais(c)for c in data.columns]
@@ -27,58 +27,101 @@ def tratarDados(data, opcao):
     # rotulo
     label = data['natureza_despesa_cod']
     label = pd.DataFrame(label)
-    data = data.drop('natureza_despesa_cod',axis = 1)
+    if("Modelo 2" not in opcao):
+        data = data.drop('natureza_despesa_cod',axis = 1)
     # tfidf
     textoTratado = tratar_texto.cleanTextData(data["empenho_historico"])
-    # Função que gera o TF-IDF do texto tratado
-    with open('pickles/modelos_tratamentos/tfidf_modelo'+'.pk', 'rb') as pickle_file:
-        tfidf_modelo = pickle.load(pickle_file)
+    if("Modelo 2" in opcao):
+        # Função que gera o TF-IDF do texto tratado
+        with open('pickles/modelos_tratamentos/tfidf_modelo_validado'+'.pk', 'rb') as pickle_file:
+            tfidf_modelo = pickle.load(pickle_file)
+    else:
+        # Função que gera o TF-IDF do texto tratado
+        with open('pickles/modelos_tratamentos/tfidf_modelo'+'.pk', 'rb') as pickle_file:
+            tfidf_modelo = pickle.load(pickle_file)
     tfidf =  pd.DataFrame.sparse.from_spmatrix(tfidf_modelo.transform(textoTratado))
     del textoTratado
     data = data.drop('empenho_historico',axis = 1)
     # Tratamento dos dados
     data = tratamento_especifico(data.copy())
+    # Tratando o beneficiario nome
+    nome = [""]*data.shape[0]
+    for i in range(data.shape[0]):
+        if(data['pessoa_juridica'].iloc[i]):
+            nome[i] = data["beneficiario_nome"].iloc[i]
+        else:
+            nome[i] = "pessoafisica"
+    data["beneficiario_nome"] = nome
+    # Tratando o campo beneficiario nome como texto livre e fazendo TFIDF
+    texto_beneficiario = tratar_texto.cleanTextData(data["beneficiario_nome"])
+    if("Modelo 2" in opcao):
+        with open('pickles/modelos_tratamentos/tfidf_beneficiario_validado'+'.pk', 'rb') as pickle_file:
+            tfidf_beneficiario = pickle.load(pickle_file)
+    else:
+        with open('pickles/modelos_tratamentos/tfidf_beneficiario'+'.pk', 'rb') as pickle_file:
+            tfidf_beneficiario = pickle.load(pickle_file)
+    data_cv = tfidf_beneficiario.transform(texto_beneficiario)
+    tfidf_beneficiario = pd.DataFrame.sparse.from_spmatrix(data_cv, columns = tfidf_beneficiario.get_feature_names())
+    data = data.drop("beneficiario_nome", axis='columns')
+    if("Modelo 2" in opcao):
+        sufixo = "_validado"
+        pickles.criarPickle(tfidf_beneficiario,"dados_tfidf_beneficiario_validado")
+    else:
+        sufixo = ""
+        pickles.criarPickle(tfidf_beneficiario,"dados_tfidf_beneficiario")
     # Normalizando colunas numéricas
     colunas = data.columns
     for col in colunas:
         if(data[col].dtype != "O"):
-            with open('pickles/modelos_tratamentos/'+"normalization_"+col+'.pk', 'rb') as pickle_file:
+            with open('pickles/modelos_tratamentos/'+"normalization_"+col+sufixo+'.pk', 'rb') as pickle_file:
                 min_max_scaler = pickle.load(pickle_file)
             data[col] = pd.DataFrame(min_max_scaler.transform(data[col].values.reshape(-1,1)))
     # OHE
-    data = one_hot_encoding.aplyOHE(data)
-    if(opcao == "OHE"):
+    if("OHE" in opcao):
+        data = one_hot_encoding.aplyOHE(data, opcao)
+        if("Modelo 2" in opcao):
+            tfidf_beneficiario = pickles.carregarPickle("dados_tfidf_beneficiario_validado")
+        else:
+            tfidf_beneficiario = pickles.carregarPickle("dados_tfidf_beneficiario")
+        data = pd.concat([data, tfidf_beneficiario], axis = 1)
         return data, label
-    elif(opcao == "tfidf"):
+    elif("tfidf" in opcao):
         return tfidf, label
     else:
-        aux = sparse.hstack((csr_matrix(data),csr_matrix(tfidf) ))
-        data =  pd.DataFrame.sparse.from_spmatrix(aux)
+        data = one_hot_encoding.aplyOHE(data)
+        if("Modelo 2" in opcao):
+            tfidf_beneficiario = pickles.carregarPickle("dados_tfidf_beneficiario_validado")
+        else:
+            tfidf_beneficiario = pickles.carregarPickle("dados_tfidf_beneficiario")
+        data = pd.concat([data, tfidf_beneficiario], axis = 1)
+        data = sparse.hstack((csr_matrix(data),csr_matrix(tfidf) ))
+        data =  pd.DataFrame.sparse.from_spmatrix(data)
         return data, label
 
 
 def refinamento_hiperparametros(data_treino, label_treino, modelo , hiperparametros, espalhamento):
     # Executando 3 fold cross-validation nos dados para achar o melhor conjunto de hiperparametros
-    grid = GridSearchCV(modelo, hiperparametros, n_jobs = -1, cv = 3)
+    grid = GridSearchCV(modelo, hiperparametros, n_jobs = 2, cv = 3)
     grid.fit(data_treino, label_treino.values.ravel())
     # Salvando resultado do modelo para a etapa de refinamento
     primeira_etapa_refinamento = grid.best_params_
     # Pegando a vizinhanca do melhor valor
-    hiperparametros =  vizinhanca_hiperparametros( primeira_etapa_refinamento, espalhamento)
-    grid = GridSearchCV(modelo, hiperparametros, n_jobs = -1, cv = 3)
+    hiperparametros =  vizinhanca_hiperparametros( primeira_etapa_refinamento, espalhamento, hiperparametros)
+    grid = GridSearchCV(modelo, hiperparametros, n_jobs = 2, cv = 3)
     grid.fit(data_treino, label_treino.values.ravel())
     return grid.best_params_
 
-def vizinhanca_hiperparametros(resultados_modelos, espalhamento):
+def vizinhanca_hiperparametros(resultados_modelos, espalhamento, hiperparametros):
     hiperparametros_refinados = [0]*espalhamento
     espalhamento = int(espalhamento/2)
     # Para cada hiperparametro
     for j in range(len(list(resultados_modelos.keys()))):
         saltos = []
-        valor_mediano = resultados_modelos[list(resultados_modelos.keys())[j]]
+        # Calculo de distancia do ponto mais longe ao central sera um decimo da diferenca dos saltos
+        distancia = 2* int((hiperparametros[list(hiperparametros.keys())[j]][1] - hiperparametros[list(hiperparametros.keys())[j]][0])/10)
         for i in range(espalhamento):
-            valor_mediano = int(valor_mediano/2)
-            saltos.append(valor_mediano)
+            distancia = int(distancia/2)
+            saltos.append(distancia)
         valor_mediano = resultados_modelos[list(resultados_modelos.keys())[j]]
         # Criando o espalhamento dos valores do hiperparametro
         for k in range(len(hiperparametros_refinados)-1):

@@ -1,4 +1,6 @@
 ### Bibliotecas python ###
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
 import pickle
 import pandas as pd
 from tratamentos import pickles
@@ -31,34 +33,78 @@ def tratamentoDados(data, escolha):
     
     if(escolha == "dropar"):
         return data["analise"]         
-    if(escolha == "tfidf"):
+    if("tfidf" in escolha):
         # Funcao que limpa o texto retira stopwords acentos pontuacao etc.
         textoTratado = tratar_texto.cleanTextData(data["empenho_historico"])
         # Função que gera o TF-IDF do texto tratado
-        tfidf = tratar_texto.calculaTFIDF(textoTratado)
+        tfidf = tratar_texto.calculaTFIDF(textoTratado,escolha)
         del textoTratado
-        pickles.criarPickle(tfidf,'tfidf')
+        if("Modelo 2" in escolha):
+            pickles.criarPickle(tfidf,'tfidf_validado')
+        else:
+            pickles.criarPickle(tfidf,'tfidf')
         return 0
     # Tratamento dos dados
     data = tratamento_especifico(data.copy())
+    # Tratando o beneficiario nome
+    nome = [""]*data.shape[0]
+    for i in range(data.shape[0]):
+        if(data['pessoa_juridica'].iloc[i]):
+            nome[i] = data["beneficiario_nome"].iloc[i]
+        else:
+            nome[i] = "pessoafisica"
+    data["beneficiario_nome"] = nome
+    # Tratando o campo beneficiario nome como texto livre e fazendo TFIDF
+    texto_beneficiario = tratar_texto.cleanTextData(data["beneficiario_nome"])
+    cv = TfidfVectorizer(dtype=np.float32)
+    data_cv = cv.fit(texto_beneficiario)
+    if("Modelo 2" in escolha):
+        with open('pickles/modelos_tratamentos/tfidf_beneficiario_validado.pk', 'wb') as fin:
+            pickle.dump(cv, fin)
+    else:
+        with open('pickles/modelos_tratamentos/tfidf_beneficiario.pk', 'wb') as fin:
+            pickle.dump(cv, fin)
+    data_cv = cv.transform(texto_beneficiario)
+    tfidf_beneficiario = pd.DataFrame.sparse.from_spmatrix(data_cv, columns = cv.get_feature_names())
+    data = data.drop("beneficiario_nome", axis='columns')
+    if("Modelo 2" in escolha):
+        pickles.criarPickle(tfidf_beneficiario,"dados_tfidf_beneficiario_validado")
+    else:
+        pickles.criarPickle(tfidf_beneficiario,"dados_tfidf_beneficiario")
     # Normalizando colunas numéricas
     min_max_scaler = preprocessing.MinMaxScaler()
     colunas = data.columns
+    if("Modelo 2" in escolha):
+        sufixo = "_validado"
+    else:
+        sufixo = ""
     for col in colunas:
         if(data[col].dtype != "O"):
             min_max_scaler.fit(data[col].values.reshape(-1,1))
-            with open('pickles/modelos_tratamentos/'+"normalization_"+col+'.pk', 'wb') as fin:
+            with open('pickles/modelos_tratamentos/'+"normalization_"+col+sufixo+'.pk', 'wb') as fin:
                 pickle.dump(min_max_scaler, fin)
             data[col] = pd.DataFrame(min_max_scaler.transform(data[col].values.reshape(-1,1)))
             
     # Excluindo as colunas que ja foram tratadas
-    data = data.drop(['empenho_historico','natureza_despesa_cod'], axis='columns')
-    if(escolha == "OHE"):
-        # Aplicando a estrategia One Hot Encoding
-        data = one_hot_encoding.oneHotEncoding(data)
-        #data = pd.concat([data,tfidf_beneficiario],axis = 1)
-        pickles.criarPickle(data,'data')
-        pickles.criarPickle(label,'label')
+    if("Modelo 2" in escolha):
+        data = data.drop(['empenho_historico'], axis='columns')
+    else:
+        data = data.drop(['empenho_historico','natureza_despesa_cod'], axis='columns')
+    if("OHE" in escolha):
+        if("Modelo 2" in escolha):
+            # Aplicando a estrategia One Hot Encoding
+            data = one_hot_encoding.oneHotEncoding(data, escolha)
+            tfidf_beneficiario = pickles.carregarPickle("dados_tfidf_beneficiario_validado")
+            data = pd.concat([data, tfidf_beneficiario], axis = 1)
+            pickles.criarPickle(data,'data_validado')
+            pickles.criarPickle(label,'label_validado')
+        else:
+            # Aplicando a estrategia One Hot Encoding
+            data = one_hot_encoding.oneHotEncoding(data, escolha)
+            tfidf_beneficiario = pickles.carregarPickle("dados_tfidf_beneficiario")
+            data = pd.concat([data, tfidf_beneficiario], axis = 1)
+            pickles.criarPickle(data,'data')
+            pickles.criarPickle(label,'label')
     else: return None
 
 
@@ -72,13 +118,12 @@ def tratamento_especifico(data):
     identificacao_pessoa = [0] * data.shape[0]
     for i in range(data.shape[0]):
       if(len(str(data['beneficiario_cpf'].iloc[i])) >1 ):
-        identificacao_pessoa[i] = 1
-      else: identificacao_pessoa[i]=0
+        identificacao_pessoa[i] = 0
+      else: identificacao_pessoa[i]= 1
     data['pessoa_juridica'] = identificacao_pessoa
     data['pessoa_juridica'] = data['pessoa_juridica'].astype("int8")
     del identificacao_pessoa
-    data = data.drop(["beneficiario_cpf","beneficiario_cnpj","beneficiario_cpf/cnpj",
-                      "beneficiario_nome"], axis='columns')
+    data = data.drop(["beneficiario_cpf","beneficiario_cnpj","beneficiario_cpf/cnpj"], axis='columns')
     # Codigo que gera o meta atributo "orgao_sucedido" onde 1 representa que o orgao tem um novo orgao sucessor e 0 caso contrario
     orgao_sucedido = [0] * data.shape[0]
     for i in range(data.shape[0]):

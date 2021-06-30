@@ -108,11 +108,15 @@ def cleanTextData(texto):
 #        result.append(rslps(temp))
     return result
 # Calcula o TFIDF
-def calculaTFIDF(textoTratado):
+def calculaTFIDF(textoTratado, escolha):
     cv = TfidfVectorizer(dtype=np.float32)
     data_cv = cv.fit(textoTratado)
-    with open('pickles/modelos_tratamentos/tfidf_modelo.pk', 'wb') as fin:
-        pickle.dump(cv, fin)
+    if("Modelo 2" in escolha):
+        with open('pickles/modelos_tratamentos/tfidf_modelo_validado.pk', 'wb') as fin:
+            pickle.dump(cv, fin)
+    else:
+        with open('pickles/modelos_tratamentos/tfidf_modelo.pk', 'wb') as fin:
+            pickle.dump(cv, fin)
     data_cv = cv.transform(textoTratado)
     tfidf = pd.DataFrame.sparse.from_spmatrix(data_cv, columns = cv.get_feature_names())
 #    tfidf = pd.DataFrame(data_cv.toarray(), columns = cv.get_feature_names())

@@ -11,6 +11,7 @@ from sklearn.metrics import f1_score
 from conexaoDados import range_dados
 from datetime import date, timedelta
 from conexaoDados import todos_dados
+from tratamentos import tratar_label
 from preparacaoDados import tratamentoDados
 from sklearn.model_selection import train_test_split
 from tratarDados import refinamento_hiperparametros
@@ -36,8 +37,6 @@ if(TREINAR_MODELO):
     data.reset_index(drop = True, inplace = True)
     del indexes
     print(data.shape)
-    data = data[:1000]
-    dados_validados = dados_validados[:500]
     # =============================================================================
     # Tratando os dados nao validados
     # =============================================================================
@@ -56,8 +55,15 @@ if(TREINAR_MODELO):
     # Acha o melhor conjunto de hiperparametros para o algoritmo
     modelo = SVC(kernel="linear", random_state=0)
     hiperparametros = {'C':[0.1,1,10,50] }
-    # espalhamento se refere a quantidade de valores criados na vizinhanca do melhor valor para o fine search
+    # Espalhamento se refere a quantidade de valores criados na vizinhanca do melhor valor para o fine search
     espalhamento = 3
+    # Deixando pelo menos 3 documentos por classe para o teste
+    label_treino, index_label_x_empenhos = tratar_label.label_elemento(label_treino["natureza_despesa_cod"], 3)
+    data_treino =  pd.DataFrame.sparse.from_spmatrix(data_treino)
+    data_treino.drop(index_label_x_empenhos,inplace = True, axis = 0)
+    data_treino.reset_index(drop = True, inplace = True)
+    data_treino = csr_matrix(data_treino)
+    #
     melhor_c = refinamento_hiperparametros(data_treino, label_treino, modelo, hiperparametros, espalhamento)["C"]
     modelo = SVC(kernel="linear", random_state=0,C = melhor_c)
     # Treina o modelo de predicao da classe
@@ -170,20 +176,20 @@ else:
     resultado.reset_index(inplace = True,drop=True)
     resultado['Resultado'] = resultado['natureza_real']==resultado['natureza_predita']
     conclusao = [""]*resultado.shape[0]
-    # Faz a logica de conclusivo e inconclusivo
+    # Faz a logica das saidas
     for l in range(resultado.shape[0]):
         if(resultado['Resultado'] .iloc[l] and resultado['corretude'].iloc[l] == "OK" ):
-            conclusao[l] = "Conclusivo"
+            conclusao[l] = "C_M1-M2"
         elif(resultado['Resultado'] .iloc[l] and resultado['corretude'].iloc[l] == "INCORRETO"):
-            conclusao[l] = "Inconclusivo"
+            conclusao[l] = "INCV_M2"
         elif(resultado['Resultado'] .iloc[l] and resultado['corretude'].iloc[l] == "INCONCLUSIVO"):
-            conclusao[l] = "Inconclusivo"
+            conclusao[l] = "AD_M2"
         elif(resultado['Resultado'] .iloc[l] == False and resultado['corretude'].iloc[l] == "OK"):
-            conclusao[l] = "Inconclusivo"
+            conclusao[l] = "INCV_M1"
         elif(resultado['Resultado'] .iloc[l] == False and resultado['corretude'].iloc[l] == "INCORRETO"):
-            conclusao[l] = "Conclusivo"
+            conclusao[l] = "INCT_M1-M2"
         elif(resultado['Resultado'] .iloc[l] == False and resultado['corretude'].iloc[l] == "INCONCLUSIVO"):
-            conclusao[l] = "Inconclusivo"
+            conclusao[l] = "INCV_M1-AD_M2"
     resultado['Resultado'] = conclusao
     if(len(sys.argv) == 1):
         resultado.to_csv("resultado-"+(date.today()-timedelta(days=1)).strftime('%Y/%m/%d').replace("/","-")+".csv",index = False)
@@ -196,8 +202,8 @@ else:
     f.write(data_atual+'\n')
     f.write("Quantidade total de documentos : "+str(len(resultado))+'\n')
     f.write("Quantidade de documentos preditos: "+str(label_hoje.shape[0])+'\n')
-    f.write("Quantidade de conclusivos: "+str(len(resultado['Resultado'][resultado['Resultado'] == "Conclusivo"]))+'\n')
-    f.write("Quantidade de inconclusivos: "+str(len(resultado['Resultado'][resultado['Resultado'] == "Inconclusivo"]))+'\n')
+    f.write("Quantidade de incorretos: "+str(len(resultado['Resultado'][resultado['Resultado'] == "INCT_M1-M2"]))+'\n')
+    f.write("Quantidade de corretos: "+str(len(resultado['Resultado'][resultado['Resultado'] == "C_M1-M2"]))+'\n')
     f.write("Micro de acerto: "+str(micro *100)[:5]+"%"+"\n")
     f.write("Macro de acerto: "+str(macro *100)[:5]+"%"+"\n")
     f.write("="*50+"\n")

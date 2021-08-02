@@ -6,7 +6,7 @@ def tratarLabel(data):
     # Pegando o nome dos rotulos que so aparecem x vezes
     label_poucos_documentos = []
     for i in range(quantidade_labels.shape[0]):
-        if(quantidade_labels.iloc[i].values[0] <= 9):
+        if(quantidade_labels.iloc[i].values[0] ==1):
             label_poucos_documentos.append(quantidade_labels.iloc[i].name)
         else:
             break
